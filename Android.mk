@@ -28,6 +28,16 @@ LOCAL_OVERRIDES_PACKAGES := Gallery Gallery3D GalleryNew3D
 
 LOCAL_JNI_SHARED_LIBRARIES := libjni_eglfence libjni_filtershow_filters librsjni libjni_jpegstream
 
+ifeq ($(TARGET_TS_MAKEUP), true)
+  LOCAL_REQUIRED_MODULES := libts_detected_face_jni libts_face_beautify_jni
+endif
+
+ifeq ($(WITH_SLIM_GALLERY2), true)
+  LOCAL_MANIFEST_FILE := slim_manifest/AndroidManifest.xml
+else
+  LOCAL_MANIFEST_FILE := AndroidManifest.xml
+endif
+
 LOCAL_PROGUARD_FLAG_FILES := proguard.flags
 
 LOCAL_MULTILIB := 32

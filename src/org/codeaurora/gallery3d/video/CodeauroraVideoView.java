@@ -94,6 +94,7 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
     private boolean mNeedWaitLayout = false;
     private boolean mHasGotMetaData = false;
     private boolean mOnResumed;
+    private boolean mIsShowDialog = false;
 
     private final Handler mHandler = new Handler() {
         public void handleMessage(final Message msg) {
@@ -370,7 +371,6 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
                 if (LOG) {
                     Log.v(TAG, "surfaceCreated(" + holder + ")");
                 }
-                /*
                 if (mCurrentState == STATE_SUSPENDED) {
                     mSurfaceHolder = holder;
                     mMediaPlayer.setDisplay(mSurfaceHolder);
@@ -386,12 +386,6 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
                     } else {
                         release(false);
                     }
-                }
-                */
-                if (mCurrentState == STATE_SUSPENDED) {
-                    mSurfaceHolder = holder;
-                    mMediaPlayer.setDisplay(mSurfaceHolder);
-                    release(false);
                 }
                 mSurfaceHolder = holder;
                 openVideo();
@@ -629,7 +623,9 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
         }
 
         public void surfaceCreated(SurfaceHolder holder) {
-            /*
+            if (LOG) {
+                Log.v(TAG, "surfaceCreated(" + holder + ")");
+            }
             if (mCurrentState == STATE_SUSPENDED) {
                 mSurfaceHolder = holder;
                 mMediaPlayer.setDisplay(mSurfaceHolder);
@@ -645,17 +641,6 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
                 } else {
                     release(false);
                 }
-            }
-            mSurfaceHolder = holder;
-            openVideo();
-            */
-            if (LOG) {
-                Log.v(TAG, "surfaceCreated(" + holder + ")");
-            }
-            if (mCurrentState == STATE_SUSPENDED) {
-                mSurfaceHolder = holder;
-                mMediaPlayer.setDisplay(mSurfaceHolder);
-                release(false);
             }
             mSurfaceHolder = holder;
             openVideo();
@@ -762,8 +747,13 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
         }
     }
 
+    public void setDialogShowState(boolean isDialogShow) {
+        mIsShowDialog = isDialogShow;
+    }
+
     @Override
     public void start() {
+        if (mIsShowDialog) return;
         if (isInPlaybackState()) {
             mMediaPlayer.start();
             mCurrentState = STATE_PLAYING;
@@ -783,7 +773,6 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
     }
 
     public void suspend() {
-        /*
         // HTTP streaming will call mMediaPlayer->suspend(), others will call release()
         if (isHTTPStreaming(mUri) && mCurrentState != STATE_PREPARING) {
             if (mMediaPlayer != null) {
@@ -793,13 +782,13 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
                     return;
                 }
             }
-        }*/
+        }
         release(false);
     }
 
     public void resume() {
-        /*
-        // HTTP streaming (with suspended status) will call mMediaPlayer->resume(), others will call openVideo()
+        // HTTP streaming (with suspended status) will call mMediaPlayer->resume(), 
+        // others will call openVideo()
         if (mCurrentState == STATE_SUSPENDED) {
             if (mSurfaceHolder != null) {
                 // The surface hasn't been destroyed
@@ -817,16 +806,8 @@ public class CodeauroraVideoView extends SurfaceView implements MediaPlayerContr
                      release(false);
                 }
             } else {
-                // The surface has been destroyed, resume operation will be done after surface created
-                return;
-            }
-        }*/
-        // HTTP streaming (with suspended status) will call mMediaPlayer->resume(), others will call openVideo()
-        if (mCurrentState == STATE_SUSPENDED) {
-            if (mSurfaceHolder != null) {
-                 release(false);
-            } else {
-                // The surface has been destroyed, resume operation will be done after surface created
+                // The surface has been destroyed, resume operation will be done 
+                // after surface created
                 return;
             }
         }

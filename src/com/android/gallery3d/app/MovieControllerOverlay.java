@@ -198,7 +198,7 @@ public class MovieControllerOverlay extends CommonControllerOverlay implements
         maybeStartHiding();
     }
 
-    private void maybeStartHiding() {
+    public void maybeStartHiding() {
         cancelHiding();
         if (mState == State.PLAYING) {
             handler.postDelayed(startHidingRunnable, 2500);
@@ -223,7 +223,7 @@ public class MovieControllerOverlay extends CommonControllerOverlay implements
         }
     }
 
-    private void cancelHiding() {
+    public void cancelHiding() {
         handler.removeCallbacks(startHidingRunnable);
         if (mOverlayExt.canHidePanel()) {
             mBackground.setAnimation(null);
@@ -811,7 +811,7 @@ public class MovieControllerOverlay extends CommonControllerOverlay implements
             mContollerButtons.setGravity(Gravity.CENTER);
 
             LinearLayout.LayoutParams buttonParam = new LinearLayout.LayoutParams(
-                    mTimeBarHeight, mTimeBarHeight);
+                    mButtonWidth, mTimeBarHeight);
             mRewind = new ImageView(context);
             mRewind.setImageResource(R.drawable.icn_media_rewind);
             mRewind.setScaleType(ScaleType.CENTER);

@@ -28,15 +28,19 @@ import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
+import android.preference.PreferenceManager;
 import android.support.v4.print.PrintHelper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.Window;
 import android.view.WindowManager;
+import android.os.Handler;
 
 import com.android.gallery3d.R;
 import com.android.gallery3d.common.ApiHelper;
@@ -45,6 +49,7 @@ import com.android.gallery3d.data.MediaItem;
 import com.android.gallery3d.filtershow.cache.ImageLoader;
 import com.android.gallery3d.ui.GLRoot;
 import com.android.gallery3d.ui.GLRootView;
+import com.android.gallery3d.util.MediaSetUtils;
 import com.android.gallery3d.util.PanoramaViewHelper;
 import com.android.gallery3d.util.ThreadPool;
 import com.android.photos.data.GalleryBitmapPool;
@@ -60,6 +65,7 @@ public class AbstractGalleryActivity extends Activity implements GalleryContext 
     private TransitionStore mTransitionStore = new TransitionStore();
     private boolean mDisableToggleStatusBar;
     private PanoramaViewHelper mPanoramaViewHelper;
+    private static final int ONRESUME_DELAY = 50;
 
     private AlertDialog mAlertDialog = null;
     private BroadcastReceiver mMountReceiver = new BroadcastReceiver() {
@@ -73,12 +79,21 @@ public class AbstractGalleryActivity extends Activity implements GalleryContext 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setStoragePath();
         mOrientationManager = new OrientationManager(this);
         toggleStatusBarByOrientation();
         getWindow().setBackgroundDrawable(null);
         mPanoramaViewHelper = new PanoramaViewHelper(this);
         mPanoramaViewHelper.onCreate();
         doBindBatchService();
+    }
+
+    private void setStoragePath() {
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
+        String storagePath = prefs.getString(StorageChangeReceiver.KEY_STORAGE,
+                Environment.getExternalStorageDirectory().toString());
+        MediaSetUtils.setRoot(storagePath);
     }
 
     @Override
@@ -131,6 +146,15 @@ public class AbstractGalleryActivity extends Activity implements GalleryContext 
 
     public GLRoot getGLRoot() {
         return mGLRootView;
+    }
+
+    public void GLRootResume(boolean isResume) {
+        if (isResume) {
+            mGLRootView.onResume();
+            mGLRootView.lockRenderThread();
+        } else {
+            mGLRootView.unlockRenderThread();
+        }
     }
 
     public OrientationManager getOrientationManager() {
@@ -203,15 +227,31 @@ public class AbstractGalleryActivity extends Activity implements GalleryContext 
     @Override
     protected void onResume() {
         super.onResume();
-        mGLRootView.lockRenderThread();
-        try {
-            getStateManager().resume();
-            getDataManager().resume();
-        } finally {
-            mGLRootView.unlockRenderThread();
-        }
-        mGLRootView.onResume();
-        mOrientationManager.resume();
+        delayedOnResume(ONRESUME_DELAY);
+    }
+
+    private void delayedOnResume(final int delay){
+        final Handler handler = new Handler();
+           Runnable delayTask = new Runnable() {
+              @Override
+              public void run() {
+                   handler.postDelayed(new Runnable() {
+                       @Override
+                       public void run() {
+                           mGLRootView.lockRenderThread();
+                           try {
+                                getStateManager().resume();
+                                getDataManager().resume();
+                            } finally {
+                                mGLRootView.unlockRenderThread();
+                            }
+                    mGLRootView.onResume();
+                    mOrientationManager.resume();
+                   }}, delay);
+             }
+          };
+        Thread delayThread = new Thread(delayTask);
+        delayThread.start();
     }
 
     @Override

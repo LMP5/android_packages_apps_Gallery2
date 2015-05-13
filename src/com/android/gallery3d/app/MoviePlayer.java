@@ -89,6 +89,11 @@ public class MoviePlayer implements
     private static final int KEYCODE_MEDIA_PLAY = 126;
     private static final int KEYCODE_MEDIA_PAUSE = 127;
 
+    // Copied from MediaPlaybackService in the Music Player app.
+    private static final String SERVICECMD = "com.android.music.musicservicecommand";
+    private static final String CMDNAME = "command";
+    private static final String CMDPAUSE = "pause";
+
     private static final String KEY_VIDEO_CAN_SEEK = "video_can_seek";
     private static final String KEY_VIDEO_CAN_PAUSE = "video_can_pause";
     private static final String KEY_VIDEO_LAST_DURATION = "video_last_duration";
@@ -287,6 +292,10 @@ public class MoviePlayer implements
         mAudioBecomingNoisyReceiver = new AudioBecomingNoisyReceiver();
         mAudioBecomingNoisyReceiver.register();
 
+        Intent i = new Intent(SERVICECMD);
+        i.putExtra(CMDNAME, CMDPAUSE);
+        movieActivity.sendBroadcast(i);
+
         // Listen for broadcasts related to user-presence
         final IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_SCREEN_OFF);
@@ -299,12 +308,22 @@ public class MoviePlayer implements
             mResumeableTime = savedInstance.getLong(KEY_RESUMEABLE_TIME, Long.MAX_VALUE);
             onRestoreInstanceState(savedInstance);
             mHasPaused = true;
+            doStartVideo(true, mVideoPosition, mVideoLastDuration,false);
+            mVideoView.start();
+            mActivityContext.initEffects(mVideoView.getAudioSessionId());
         } else {
             mTState = TState.PLAYING;
             mFirstBePlayed = true;
-            final BookmarkerInfo bookmark = mBookmarker.getBookmark(mMovieItem.getUri());
-            if (bookmark != null) {
-                showResumeDialog(movieActivity, bookmark);
+            String mUri = mMovieItem.getUri().toString();
+            boolean isLive = mUri.startsWith("rtsp://") && (mUri.contains(".sdp")
+                    || mUri.contains(".smil"));
+            if (!isLive) {
+                final BookmarkerInfo bookmark = mBookmarker.getBookmark(mMovieItem.getUri());
+                if (bookmark != null) {
+                    showResumeDialog(movieActivity, bookmark);
+                } else {
+                    doStartVideo(false, 0, 0);
+                }
             } else {
                 doStartVideo(false, 0, 0);
             }
@@ -453,8 +472,6 @@ public class MoviePlayer implements
         mVideoView.suspend();
         mResumeableTime = System.currentTimeMillis() + RESUMEABLE_TIMEOUT;
         mVideoView.setResumed(false);// avoid start after surface created
-        // Workaround for last-seek frame difference
-        mVideoView.setVisibility(View.INVISIBLE);
         long end2 = System.currentTimeMillis();
         // TODO comments by sunlei
         mOverlayExt.clearBuffering();
@@ -620,6 +637,7 @@ public class MoviePlayer implements
         }
         mTState = TState.PAUSED;
         mVideoView.pause();
+        setProgress();
         mController.showPaused();
     }
 
@@ -1345,6 +1363,12 @@ public class MoviePlayer implements
                             }
 
                         })
+                        .setOnCancelListener(new OnCancelListener() {
+                            public void onCancel(DialogInterface dialog) {
+                                mController.showEnded();
+                                onCompletion();
+                            }
+                        })
                         .create();
                 mServerTimeoutDialog.setOnDismissListener(new OnDismissListener() {
 
@@ -1352,6 +1376,7 @@ public class MoviePlayer implements
                         if (LOG) {
                             Log.v(TAG, "mServerTimeoutDialog.onDismiss()");
                         }
+                        mVideoView.setDialogShowState(false);
                         mIsShowDialog = false;
                     }
 
@@ -1362,6 +1387,7 @@ public class MoviePlayer implements
                         if (LOG) {
                             Log.v(TAG, "mServerTimeoutDialog.onShow()");
                         }
+                        mVideoView.setDialogShowState(true);
                         mIsShowDialog = true;
                     }
 
@@ -1573,6 +1599,18 @@ public class MoviePlayer implements
         SharedPreferences mPrefs = mContext.getSharedPreferences(
                 videoPlayerData, 0);
         return (mPrefs.getInt(slectedStepOption, stepOptionThreeSeconds) + 1) * stepBase;
+    }
+
+    public void restartHidingController() {
+        if (mController != null) {
+            mController.maybeStartHiding();
+        }
+    }
+
+    public void cancelHidingController() {
+        if (mController != null) {
+            mController.cancelHiding();
+        }
     }
 }
 
